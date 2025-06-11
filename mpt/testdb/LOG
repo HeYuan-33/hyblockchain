@@ -1,0 +1,44 @@
+=============== Jun 11, 2025 (CST) ===============
+21:00:36.604835 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:00:36.615034 db@open opening
+21:00:36.615034 version@stat F·[] S·0B[] Sc·[]
+21:00:36.616371 db@janitor F·2 G·0
+21:00:36.616371 db@open done T·1.3362ms
+21:00:36.616444 db@close closing
+21:00:36.616444 db@close done T·0s
+=============== Jun 11, 2025 (CST) ===============
+21:07:07.705282 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:07:07.715780 version@stat F·[] S·0B[] Sc·[]
+21:07:07.715780 db@open opening
+21:07:07.716295 journal@recovery F·1
+21:07:07.716295 journal@recovery recovering @1
+21:07:07.720950 memdb@flush created L0@2 N·2 S·238B "\x86\xfb\xc9..k\x1dB,v1":"\xd4\x1b\xf9..\xbaq\xc4,v2"
+21:07:07.721456 version@stat F·[1] S·238B[238B] Sc·[0.25]
+21:07:07.724649 db@janitor F·3 G·0
+21:07:07.724649 db@open done T·8.8693ms
+21:07:07.725187 db@close closing
+21:07:07.725187 db@close done T·0s
+=============== Jun 11, 2025 (CST) ===============
+21:12:37.519080 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:12:37.525533 version@stat F·[1] S·238B[238B] Sc·[0.25]
+21:12:37.525533 db@open opening
+21:12:37.525533 journal@recovery F·1
+21:12:37.526049 journal@recovery recovering @3
+21:12:37.527107 memdb@flush created L0@5 N·2 S·238B "\x86\xfb\xc9..k\x1dB,v4":"\xd4\x1b\xf9..\xbaq\xc4,v5"
+21:12:37.528153 version@stat F·[2] S·476B[476B] Sc·[0.50]
+21:12:37.532262 db@janitor F·4 G·0
+21:12:37.532262 db@open done T·6.7288ms
+21:12:37.532801 db@close closing
+21:12:37.532801 db@close done T·0s
+=============== Jun 11, 2025 (CST) ===============
+21:16:22.511769 log@legend F·NumFile S·FileSize N·Entry C·BadEntry B·BadBlock Ke·KeyError D·DroppedEntry L·Level Q·SeqNum T·TimeElapsed
+21:16:22.521596 version@stat F·[2] S·476B[476B] Sc·[0.50]
+21:16:22.521596 db@open opening
+21:16:22.521596 journal@recovery F·1
+21:16:22.522317 journal@recovery recovering @6
+21:16:22.523577 memdb@flush created L0@8 N·3 S·303B "\x86\xfb\xc9..k\x1dB,v7":"\xd4\x1b\xf9..\xbaq\xc4,v8"
+21:16:22.524131 version@stat F·[3] S·779B[779B] Sc·[0.75]
+21:16:22.525786 db@janitor F·5 G·0
+21:16:22.525786 db@open done T·4.1903ms
+21:16:22.525786 db@close closing
+21:16:22.526328 db@close done T·541.6µs
