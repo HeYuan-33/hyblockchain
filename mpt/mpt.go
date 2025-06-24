@@ -27,7 +27,7 @@ func NewMPT(db kvstore.KVStore) *MPT {
 
 // Put 在MPT中存储键值对
 func (m *MPT) Put(key, value []byte) error {
-	nibbles := bytesToNibbles(key)
+	nibbles := bytesToNibbles(key) //长数组nibble[2,3,4..]
 	newRoot, err := m.insert(m.root, nibbles, value)
 	if err != nil {
 		return err
@@ -74,7 +74,7 @@ func (m *MPT) insert(n *Node, key []byte, value []byte) (*Node, error) {
 			n.Value = value
 			return n, nil
 		}
-
+		//common等于零，说明没有一个匹配的与叶子节点，新建分支节点，分别把叶子节点和新插入的节点放入
 		branch := NewBranchNode()
 		if common == 0 {
 			if len(n.Key) > 0 {

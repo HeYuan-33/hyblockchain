@@ -4,18 +4,18 @@ package mpt
 type NodeType byte
 
 const (
-	BranchNode   NodeType = 0
+	BranchNode    NodeType = 0
 	ExtensionNode NodeType = 1
-	LeafNode     NodeType = 2
+	LeafNode      NodeType = 2
 )
 
 // Node 表示MPT中的一个节点
 type Node struct {
-	Type     NodeType
-	Key      []byte
-	Value    []byte
-	Children [16]*Node
-	Hash     []byte
+	Type     NodeType  // 节点类型
+	Key      []byte    // 压缩路径（用于扩展/叶子节点）
+	Value    []byte    // 存储值（仅叶子节点用）
+	Children [16]*Node // 子节点数组（仅分支节点使用）
+	Hash     []byte    // 当前节点的哈希（默认为 nil，需外部生成）
 }
 
 // NewBranchNode 创建一个新的分支节点
