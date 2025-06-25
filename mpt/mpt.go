@@ -9,25 +9,27 @@ import (
 
 // MPT 表示一个Merkle Patricia Trie
 type MPT struct {
-	root *Node
-	db   kvstore.KVStore
+	root      *Node
+	db        kvstore.KVStore
+	emptyRoot *Node // 唯一的空节点实例，保证空树哈希稳定
 }
 
-// NewMPT 创建一个新的MPT
+// NewMPT 创建新的MPT，初始化空节点并递归提交数据库
 func NewMPT(db kvstore.KVStore) *MPT {
-	root := NewBranchNode()
+	emptyRoot := NewBranchNode()
 	mpt := &MPT{
-		root: root,
-		db:   db,
+		root:      emptyRoot,
+		emptyRoot: emptyRoot,
+		db:        db,
 	}
-	// 初始化根节点的哈希
-	root.Hash = mpt.hashNode(root)
+	// 提交空节点到数据库，保证空节点hash和数据存在
+	mpt.commitNode(emptyRoot)
 	return mpt
 }
 
 // Put 在MPT中存储键值对
 func (m *MPT) Put(key, value []byte) error {
-	nibbles := bytesToNibbles(key) //长数组nibble[2,3,4..]
+	nibbles := bytesToNibbles(key)
 	newRoot, err := m.insert(m.root, nibbles, value)
 	if err != nil {
 		return err
@@ -49,6 +51,10 @@ func (m *MPT) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
+	if newRoot == nil || newRoot == m.emptyRoot {
+		// 空节点统一使用唯一实例
+		newRoot = m.emptyRoot
+	}
 	m.root = newRoot
 	return m.commit()
 }
@@ -63,7 +69,7 @@ func (m *MPT) RootHash() []byte {
 
 // insert 在MPT中插入或更新节点
 func (m *MPT) insert(n *Node, key []byte, value []byte) (*Node, error) {
-	if n == nil {
+	if n == nil || n == m.emptyRoot {
 		return NewLeafNode(key, value), nil
 	}
 
@@ -74,7 +80,6 @@ func (m *MPT) insert(n *Node, key []byte, value []byte) (*Node, error) {
 			n.Value = value
 			return n, nil
 		}
-		//common等于零，说明没有一个匹配的与叶子节点，新建分支节点，分别把叶子节点和新插入的节点放入
 		branch := NewBranchNode()
 		if common == 0 {
 			if len(n.Key) > 0 {
@@ -154,7 +159,7 @@ func (m *MPT) insert(n *Node, key []byte, value []byte) (*Node, error) {
 
 // get 从MPT中获取值
 func (m *MPT) get(n *Node, key []byte) ([]byte, error) {
-	if n == nil {
+	if n == nil || n == m.emptyRoot {
 		return nil, errors.New("key not found")
 	}
 
@@ -173,6 +178,9 @@ func (m *MPT) get(n *Node, key []byte) ([]byte, error) {
 
 	case BranchNode:
 		if len(key) == 0 {
+			if n.Value == nil {
+				return nil, errors.New("key not found")
+			}
 			return n.Value, nil
 		}
 		return m.get(n.Children[key[0]], key[1:])
@@ -181,16 +189,16 @@ func (m *MPT) get(n *Node, key []byte) ([]byte, error) {
 	return nil, errors.New("unknown node type")
 }
 
-// delete 从MPT中删除节点
+// delete 从MPT中删除节点，空节点统一返回 m.emptyRoot
 func (m *MPT) delete(n *Node, key []byte) (*Node, error) {
-	if n == nil {
-		return nil, errors.New("key not found")
+	if n == nil || n == m.emptyRoot {
+		return m.emptyRoot, nil
 	}
 
 	switch n.Type {
 	case LeafNode:
 		if bytes.Equal(n.Key, key) {
-			return nil, nil
+			return m.emptyRoot, nil
 		}
 		return n, nil
 
@@ -202,8 +210,8 @@ func (m *MPT) delete(n *Node, key []byte) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		if child == nil {
-			return nil, nil
+		if child == m.emptyRoot {
+			return m.emptyRoot, nil
 		}
 		if child.Type == ExtensionNode {
 			return NewExtensionNode(append(n.Key, child.Key...), child.Children[0]), nil
@@ -224,15 +232,16 @@ func (m *MPT) delete(n *Node, key []byte) (*Node, error) {
 		nonNilChildren := 0
 		lastChildIndex := -1
 		for i, child := range n.Children {
-			if child != nil {
+			if child != nil && child != m.emptyRoot {
 				nonNilChildren++
 				lastChildIndex = i
 			}
 		}
 
 		if nonNilChildren == 0 && n.Value == nil {
-			return NewBranchNode(), nil
+			return m.emptyRoot, nil
 		}
+
 		if nonNilChildren == 1 && n.Value == nil {
 			child := n.Children[lastChildIndex]
 			if child.Type == ExtensionNode {
@@ -246,7 +255,7 @@ func (m *MPT) delete(n *Node, key []byte) (*Node, error) {
 	return nil, errors.New("unknown node type")
 }
 
-// commit 将MPT的更改提交到数据库
+// commit 将MPT的更改提交到数据库，先递归提交子节点，保证哈希更新
 func (m *MPT) commit() error {
 	return m.commitNode(m.root)
 }
@@ -257,32 +266,28 @@ func (m *MPT) commitNode(n *Node) error {
 		return nil
 	}
 
-	n.Hash = m.hashNode(n)
-	err := m.db.Put(n.Hash, m.serializeNode(n))
-	if err != nil {
-		return err
-	}
-
+	// 先提交所有子节点
 	for _, child := range n.Children {
 		if child != nil {
-			err = m.commitNode(child)
-			if err != nil {
+			if err := m.commitNode(child); err != nil {
 				return err
 			}
 		}
 	}
 
-	return nil
+	// 计算当前节点的哈希并存储
+	n.Hash = m.hashNode(n)
+	return m.db.Put(n.Hash, m.serializeNode(n))
 }
 
-// hashNode 计算节点的哈希值
+// hashNode 计算节点的哈希
 func (m *MPT) hashNode(n *Node) []byte {
 	data := m.serializeNode(n)
 	hash := sha256.Sum256(data)
 	return hash[:]
 }
 
-// serializeNode 序列化节点
+// serializeNode 序列化节点，保证顺序和格式稳定
 func (m *MPT) serializeNode(n *Node) []byte {
 	var buf bytes.Buffer
 	buf.WriteByte(byte(n.Type))
@@ -291,9 +296,15 @@ func (m *MPT) serializeNode(n *Node) []byte {
 	case LeafNode:
 		buf.Write(n.Key)
 		buf.Write(n.Value)
+
 	case ExtensionNode:
 		buf.Write(n.Key)
-		buf.Write(n.Children[0].Hash)
+		if len(n.Children) > 0 && n.Children[0] != nil {
+			buf.Write(n.Children[0].Hash)
+		} else {
+			buf.Write(make([]byte, 32))
+		}
+
 	case BranchNode:
 		for _, child := range n.Children {
 			if child != nil {
@@ -304,13 +315,15 @@ func (m *MPT) serializeNode(n *Node) []byte {
 		}
 		if n.Value != nil {
 			buf.Write(n.Value)
+		} else {
+			buf.Write([]byte{})
 		}
 	}
 
 	return buf.Bytes()
 }
 
-// bytesToNibbles 将字节数组转换为nibbles
+// bytesToNibbles 将字节数组转换成nibbles
 func bytesToNibbles(b []byte) []byte {
 	nibbles := make([]byte, len(b)*2)
 	for i, v := range b {
@@ -320,7 +333,7 @@ func bytesToNibbles(b []byte) []byte {
 	return nibbles
 }
 
-// commonPrefix 计算两个字节数组的共同前缀长度
+// commonPrefix 计算两个字节数组的最长共同前缀长度
 func commonPrefix(a, b []byte) int {
 	i := 0
 	for i < len(a) && i < len(b) && a[i] == b[i] {

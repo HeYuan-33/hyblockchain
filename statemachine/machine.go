@@ -8,7 +8,7 @@ import (
 )
 
 type IMachine interface {
-	Execute(state trie.ITrie, tx types.Transaction)
+	Execute(state statdb.StatDB, tx types.Transaction)
 	Execute1(state statdb.StatDB, tx types.Transaction) *types.Receiption
 }
 
@@ -20,7 +20,7 @@ func (m StateMachine) Execute1(state statdb.StatDB, tx types.Transaction) *types
 	panic("implement me")
 }
 
-func (m StateMachine) Execute(state trie.ITrie, tx types.Transaction) {
+func (m StateMachine) Execute(state statdb.StatDB, tx types.Transaction) {
 	from := tx.From()
 	to := tx.To
 	value := tx.Value
