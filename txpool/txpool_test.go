@@ -18,7 +18,7 @@ func formatAddr(addr types.Address) string {
 // 打印交易池状态（排序 nonce）
 func (pool *DefaultPool) PrintState(t *testing.T) {
 	t.Log("== Pending Transactions ==")
-	for addr, blks := range pool.pendings {
+	for addr, blks := range pool.Pendings {
 		t.Logf("  [%s]", formatAddr(addr))
 
 		for i, blk := range blks {
@@ -36,7 +36,7 @@ func (pool *DefaultPool) PrintState(t *testing.T) {
 	}
 
 	t.Log("== Queued Transactions ==")
-	for addr, txs := range pool.queued {
+	for addr, txs := range pool.Queued {
 		t.Logf("  [%s]", formatAddr(addr))
 
 		// ✅ 同样排序 nonce

@@ -43,6 +43,10 @@ func (sorted *DefaultSortedTxs) Pop() *types.Transaction {
 }
 
 func (sorted DefaultSortedTxs) Nonce() uint64 {
+	if len(sorted) == 0 {
+		// 这里返回一个无效的大数，或者直接panic也行（建议先返回大数避免崩溃）
+		return ^uint64(0) // 最大 uint64 值
+	}
 	return sorted[len(sorted)-1].Nonce()
 }
 
@@ -72,8 +76,8 @@ type DefaultPool struct {
 	StatDB   statdb.StatDB
 	all      map[hash.Hash]bool
 	txs      pendingTxs
-	pendings map[types.Address][]SortedTxs
-	queued   map[types.Address][]*types.Transaction
+	Pendings map[types.Address][]SortedTxs
+	Queued   map[types.Address][]*types.Transaction
 }
 
 func (pool *DefaultPool) NewTx(tx *types.Transaction) {
@@ -81,7 +85,7 @@ func (pool *DefaultPool) NewTx(tx *types.Transaction) {
 	if account.Nonce >= tx.Nonce() {
 		return
 	}
-	blks := pool.pendings[tx.From()]
+	blks := pool.Pendings[tx.From()]
 	expectedNonce := account.Nonce + 1
 	for _, blk := range blks {
 		expectedNonce = blk.Nonce() + 1
@@ -128,20 +132,20 @@ func (pool DefaultPool) replacePending(blks []SortedTxs, tx *types.Transaction) 
 }
 
 func (pool DefaultPool) addQueue(tx *types.Transaction) {
-	list := pool.queued[tx.From()]
+	list := pool.Queued[tx.From()]
 	list = append(list, tx)
 	//sort
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].Nonce() < list[j].Nonce()
 	})
-	pool.queued[tx.From()] = list
+	pool.Queued[tx.From()] = list
 }
 
 func (pool *DefaultPool) pushpending(blks []SortedTxs, tx *types.Transaction) {
 	if len(blks) == 0 {
 		blk := make(DefaultSortedTxs, 0)
 		blk = append(blk, tx)
-		pool.pendings[tx.From()] = []SortedTxs{&blk}
+		pool.Pendings[tx.From()] = []SortedTxs{&blk}
 		pool.txs = append(pool.txs, &blk)
 		sort.Sort(pool.txs)
 		return
@@ -165,7 +169,7 @@ func (pool *DefaultPool) pushpending(blks []SortedTxs, tx *types.Transaction) {
 		blk := make(DefaultSortedTxs, 0)
 		blk = append(blk, tx)
 		blks = append(blks, &blk)
-		pool.pendings[tx.From()] = blks
+		pool.Pendings[tx.From()] = blks
 		pool.txs = append(pool.txs, &blk)
 		sort.Sort(pool.txs)
 	}
@@ -197,7 +201,7 @@ func (pool *DefaultPool) Pop() *types.Transaction {
 }
 
 func (pool *DefaultPool) promoteQueued(addr types.Address) {
-	queuedTxs, ok := pool.queued[addr]
+	queuedTxs, ok := pool.Queued[addr]
 	if !ok || len(queuedTxs) == 0 {
 		return
 	}
@@ -223,9 +227,9 @@ func (pool *DefaultPool) promoteQueued(addr types.Address) {
 	}
 
 	if len(remainTxs) == 0 {
-		delete(pool.queued, addr)
+		delete(pool.Queued, addr)
 	} else {
-		pool.queued[addr] = remainTxs
+		pool.Queued[addr] = remainTxs
 	}
 
 	if len(promoteTxs) == 0 {
@@ -233,12 +237,12 @@ func (pool *DefaultPool) promoteQueued(addr types.Address) {
 	}
 
 	// 这里推送到 pendings，推荐只用一个区块维护同一地址的连续交易
-	blks := pool.pendings[addr]
+	blks := pool.Pendings[addr]
 	var blk *DefaultSortedTxs
 	if len(blks) == 0 {
 		newBlk := make(DefaultSortedTxs, 0, len(promoteTxs))
 		blk = &newBlk
-		pool.pendings[addr] = []SortedTxs{blk}
+		pool.Pendings[addr] = []SortedTxs{blk}
 		pool.txs = append(pool.txs, blk)
 	} else {
 		blk = blks[0].(*DefaultSortedTxs)
@@ -261,7 +265,7 @@ func NewDefaultPool(stat *statdb.MockStatDB) *DefaultPool {
 		StatDB:   stat,
 		all:      make(map[hash.Hash]bool),
 		txs:      make([]SortedTxs, 0),
-		pendings: make(map[types.Address][]SortedTxs),
-		queued:   make(map[types.Address][]*types.Transaction),
+		Pendings: make(map[types.Address][]SortedTxs),
+		Queued:   make(map[types.Address][]*types.Transaction),
 	}
 }
